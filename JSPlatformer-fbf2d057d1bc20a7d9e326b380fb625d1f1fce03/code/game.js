@@ -2,7 +2,9 @@
 var actorChars = {
   "@": Player,
   "o": Coin, // A coin will wobble up and down
-  "=": Lava, "|": Lava, "v": Lava  
+  "h": Black, // should fade the character
+  "S": SafeLava, //I hope this works!
+  "=": Lava, "|": Lava, "v": Lava
 };
 
 function Level(plan) {
@@ -38,6 +40,9 @@ function Level(plan) {
       // Because there is a third case (space ' '), use an "else if" instead of "else"
       else if (ch == "!")
         fieldType = "lava";
+        //some lava will be safe! HUAHAHHAHHAHAHAHAHH
+      else if (ch == "S")
+        fieldType = "safeLava";
 
       // "Push" the fieldType, which is a string, onto the gridLine array (at the end).
       gridLine.push(fieldType);
@@ -89,6 +94,16 @@ function Coin(pos) {
 }
 Coin.prototype.type = "coin";
 
+//attempt to fade here.
+function Black(pos, ch) {
+  if (ch == "h") {
+	this.basePos = this.pos = pos.plus(new Vector (0.2, 0.1));
+	this.size = new Vector(0.8, 0.8);
+	this.wobble = Math.random() * Math.PI * 2;
+  }
+}
+Black.prototype.type = "black";
+
 // Lava is initialized based on the character, but otherwise has a
 // size and position
 function Lava(pos, ch) {
@@ -107,8 +122,15 @@ function Lava(pos, ch) {
   }
 }
 Lava.prototype.type = "lava";
-
-// Helper function to easily create an element of a type provided 
+//safe lava here.
+function SafeLava(pos, ch) {
+  this.pos = pos;
+  this.size = new Vector(1, 1);
+  if (ch == "S") {
+    this.speed = new Vector(4, 0);
+  }
+SafeLava.prototype.type = "safeLava";
+// Helper function to easily create an element of a type provided
 function elt(name, className) {
   var elt = document.createElement(name);
   if (className) elt.className = className;
@@ -150,7 +172,7 @@ DOMDisplay.prototype.drawBackground = function() {
   return table;
 };
 
-// All actors are above (in front of) background elements.  
+// All actors are above (in front of) background elements.
 DOMDisplay.prototype.drawActors = function() {
   // Create a new container div for actor dom elements
   var wrap = elt("div");
@@ -235,10 +257,10 @@ Level.prototype.obstacleAt = function(pos, size) {
   }
 };
 
-// Collision detection for actors is handled separately from 
-// tiles. 
+// Collision detection for actors is handled separately from
+// tiles.
 Level.prototype.actorAt = function(actor) {
-  // Loop over each actor in our actors list and compare the 
+  // Loop over each actor in our actors list and compare the
   // boundary boxes for overlaps.
   for (var i = 0; i < this.actors.length; i++) {
     var other = this.actors[i];
@@ -260,7 +282,7 @@ Level.prototype.animate = function(step, keys) {
   if (this.status != null)
     this.finishDelay -= step;
 
-  // Ensure each is maximum 100 milliseconds 
+  // Ensure each is maximum 100 milliseconds
   while (step > 0) {
     var thisStep = Math.min(step, maxStep);
     this.actors.forEach(function(actor) {
@@ -282,11 +304,26 @@ Lava.prototype.act = function(step, level) {
   else
     this.speed = this.speed.times(-1);
 };
-
+//safelava acting
+SafeLava.prototype.act = function(step, level) {
+  var newPos = this.pos.plus(this.speed.times(step));
+  if (!level.obstacleAt(newPos, this.size))
+    this.pos = newPos;
+  else if (this.repeatPos)
+    this.pos = this.repeatPos;
+  else
+    this.speed = this.speed.times(-1);
+};
 
 var maxStep = 0.05;
 
 var wobbleSpeed = 8, wobbleDist = 0.07;
+
+Black.prototype.act = function(step) {
+  this.wobble += step * wobbleSpeed;
+  var wobblePos = Math.sin(this.wobble) * wobbleDist;
+  this.pos = this.basePos.plus(new Vector(0, wobblePos));
+};
 
 Coin.prototype.act = function(step) {
   this.wobble += step * wobbleSpeed;
@@ -335,7 +372,7 @@ Player.prototype.moveY = function(step, level, keys) {
   var motion = new Vector(0, this.speed.y * step);
   var newPos = this.pos.plus(motion);
   var obstacle = level.obstacleAt(newPos, this.size);
-  // The floor is also an obstacle -- only allow players to 
+  // The floor is also an obstacle -- only allow players to
   // jump if they are touching some obstacle.
   if (obstacle) {
     level.playerTouched(obstacle);
@@ -367,22 +404,33 @@ Level.prototype.playerTouched = function(type, actor) {
 
   // if the player touches lava and the player hasn't won
   // Player loses
-  if (type == "lava" && this.status == null) {
+  if (type == "black") {
+		this.status = "doomed";
+    }
+	else if (type == "lava" && this.status == "doomed"){
+		this.status = "lost";
+		this.finishDelay = 1;
+		Player.prototype.type = "player";
+	}else if (type == "lava" && this.status == null) {
     this.status = "lost";
     this.finishDelay = 1;
-  } else if (type == "coin") {
-    this.actors = this.actors.filter(function(other) {
-      return other != actor;
-    });
-    // If there aren't any coins left, player wins
-    if (!this.actors.some(function(actor) {
-           return actor.type == "coin";
-         })) {
-      this.status = "won";
-      this.finishDelay = 1;
-    }
-  }
-};
+	Player.prototype.type = "player";
+}
+else if (type == "coin") {
+      this.actors = this.actors.filter(function(other) {
+        return other != actor;
+  	});
+      // If there aren't any coins left, player wins
+      if (!this.actors.some(function(actor) {
+             return actor.type == "coin";
+           })) {
+        this.status = "image";
+        this.finishDelay = 1;
+  };
+  	  Player.prototype.type = "player";
+      }
+    };
+
 
 // Arrow key codes for readibility
 var arrowCodes = {37: "left", 38: "up", 39: "right"};
@@ -391,9 +439,9 @@ var arrowCodes = {37: "left", 38: "up", 39: "right"};
 function trackKeys(codes) {
   var pressed = Object.create(null);
 
-  // alters the current "pressed" array which is returned from this function. 
+  // alters the current "pressed" array which is returned from this function.
   // The "pressed" variable persists even after this function terminates
-  // That is why we needed to assign it using "Object.create()" as 
+  // That is why we needed to assign it using "Object.create()" as
   // otherwise it would be garbage collected
 
   function handler(event) {
@@ -401,7 +449,7 @@ function trackKeys(codes) {
       // If the event is keydown, set down to true. Else set to false.
       var down = event.type == "keydown";
       pressed[codes[event.keyCode]] = down;
-      // We don't want the key press to scroll the browser window, 
+      // We don't want the key press to scroll the browser window,
       // This stops the event from continuing to be processed
       event.preventDefault();
     }
