@@ -409,7 +409,7 @@ Level.prototype.playerTouched = function(type, actor) {
 		this.status = "doomed";
     }
 	else if (type == "lava" && this.status == "doomed"){
-		this.status = "lost";
+		this.status = "dead";
 		this.finishDelay = 1;
 		Player.prototype.type = "player";
 	}else if (type == "lava" && this.status == null) {
