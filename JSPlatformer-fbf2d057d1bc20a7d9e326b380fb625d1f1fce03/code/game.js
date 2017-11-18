@@ -129,6 +129,7 @@ function SafeLava(pos, ch) {
   if (ch == "S") {
     this.speed = new Vector(4, 0);
   }
+};
 SafeLava.prototype.type = "safeLava";
 // Helper function to easily create an element of a type provided
 function elt(name, className) {
